@@ -207,7 +207,7 @@ class DecisionTree:
         self.imprimir_arbol(nodo.left, espacio + " |   ")
 
         print(f"{espacio} |--- NO - ", end="")
-        self.imprimir_arbol(nodo.right, espacio + "    ")
+        self.imprimir_arbol(nodo.right, espacio + "     ")
 
 def main():
     X, y = csv_prueba() 
