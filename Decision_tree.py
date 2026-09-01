@@ -36,6 +36,38 @@ def split_dataset(X, y, test_size = .2, random_seed=42):
 
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx] 
 
+def evaluacion(y_real, y_pred):
+    TP = 0
+    TN = 0
+    FP = 0
+    FN = 0
+
+    for real, pred in zip(y_real, y_pred):
+        if real == 1 and pred == 1:
+            TP += 1
+        elif real == 1 and pred == 0:
+            FN += 1
+        elif real == 0 and pred == 0:
+            TN += 1
+        elif real == 0 and pred == 1:
+            FP += 1
+    print("\n")
+    print("--Matriz de Confusion--")
+    print(f"           Pred: 1    Pred: 0")
+    print(f"Real: 1  |   {TP}   |   {FN}   |")
+    print("--------------------------------------")
+    print(f"Real: 0  |   {FP}   |   {TN}   |")
+    print("---------------------------\n")
+
+    accuracy = (TP + TN)/(TP + TN + FP + FN) if (TP + TN + FP + FN ) > 0 else 0
+    precision = TP / (TP + FP) if (TP + FP) > 0 else 0
+    recall = TP / (TP + FN) if (TP + FN) > 0 else 0
+    specificity = TN / (TN + FP) if (TN + FP) > 0 else 0
+
+    print(f"Accuracy:       {accuracy:.4f}")
+    print(f"Precision:      {precision:.4f}")
+    print(f"Sensibilidad:   {recall:.4f}")
+    print(f"Especificidad:  {specificity:.4f}\n")
 
 class TreeNode:
     def __init__(self, threshold=None, feature=None, left=None, right=None, valor=None):
@@ -87,8 +119,8 @@ class DecisionTree:
                 y_izq = y[mascara_izq]
                 y_der = y[mascara_der]
 
-                print(y_izq.shape)
-                print(y_der.shape)
+                #print(y_izq.shape)
+                #print(y_der.shape)
 
                 if y_izq.size == 0 or y_der.size == 0:
                     continue
@@ -109,7 +141,7 @@ class DecisionTree:
                     mejor_feature = feature
                     mejor_threshold = threshold
 
-                print(f" mejor gini: {mejor_gini}")
+                #print(f" mejor gini: {mejor_gini}")
                 #print(f"mejor feature: {mejor_feature}")
                 #print(f" mejor threshold: {mejor_threshold}")
 
@@ -200,9 +232,12 @@ def main():
     for i in range(0, predicciones.size - 1):
         print(i, y_test[i] == predicciones[i])
 
-
-    print("--Arbol--")
+    print("\n--Arbol--")
     arbol.imprimir_arbol()
+
+
+
+    evaluar = evaluacion(y_test, predicciones)
 
 if __name__ == "__main__":
     main()
