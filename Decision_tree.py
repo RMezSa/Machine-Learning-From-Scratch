@@ -20,6 +20,18 @@ def csv_prueba():
     
     return X, y
 
+def csv_cancer_mama():
+    url = "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
+    df = pd.read_csv(url, header=None)
+    df = df.drop(0, axis=1)
+    df[1] = df[1].map({'M':1, 'B':0})
+
+    y = df.iloc[:,0].values
+    X = df.iloc[:,1:].values
+
+    return X, y
+
+
 def dataset(filename):
     df = pd.read_csv(filename)
     X = df.iloc[:, :-1].values
@@ -244,6 +256,10 @@ class RandomForest:
             arbol.fit(sample_X, sample_y)
 
             self.bosque.append(arbol)
+            print("Arbol ", i + 1)
+            arbol.imprimir_arbol()
+            print("\n")
+
 
     def predict(self, X):
         predicciones_finales = []
@@ -262,14 +278,14 @@ class RandomForest:
             elif votos[0] < votos[1]:
                 ganador = 1
             else:
-                #si ambos tienen la misma cantidad de votos van a ser 0
+                #si ambos tienen la misma cantidad de votos el ganador es 0
                 ganador = 0
 
             predicciones_finales.append(ganador)
         return np.array(predicciones_finales)
 
 def main():
-    X, y = csv_prueba() 
+    X, y = csv_cancer_mama() 
 
     print("X")
     print(type(X))
@@ -279,9 +295,9 @@ def main():
     print(type(y))
     print(y.shape)
 
-    X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.2)
+    X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.3)
 
-    bosque = RandomForest(2, 2, 5)
+    bosque = RandomForest(2, 5, 30)
     bosque.fit(X_train, y_train)
     predicciones = bosque.predict(X_test)
 
