@@ -5,7 +5,6 @@ def csv_prueba():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
     columnas = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'especie']
     df = pd.read_csv(url, names=columnas)
-    # ignoramos 'Iris-virginica'
     df = df[df['especie'].isin(['Iris-versicolor', 'Iris-virginica'])]
     # Mapeamos a 0 (Negativo) y 1 (Positivo)
     mapeo_especies = {
@@ -55,7 +54,7 @@ def evaluacion(y_real, y_pred):
     print("--Matriz de Confusion--")
     print(f"           Pred: 1    Pred: 0")
     print(f"Real: 1  |   {TP}   |   {FN}   |")
-    print("--------------------------------------")
+    print("---------------------------")
     print(f"Real: 0  |   {FP}   |   {TN}   |")
     print("---------------------------\n")
 
@@ -68,6 +67,7 @@ def evaluacion(y_real, y_pred):
     print(f"Precision:      {precision:.4f}")
     print(f"Sensibilidad:   {recall:.4f}")
     print(f"Especificidad:  {specificity:.4f}\n")
+
 
 class TreeNode:
     def __init__(self, threshold=None, feature=None, left=None, right=None, valor=None):
@@ -108,7 +108,12 @@ class DecisionTree:
         mejor_feature = None
         mejor_threshold = None
 
-        for feature in range(n_features):
+        n_subconjunto = int(np.sqrt(n_features))
+        features_aleatorias = np.random.choice(n_features, n_subconjunto, replace=False)
+
+
+
+        for feature in features_aleatorias:
             valores_unicos = np.unique(X[:, feature])
             thresholds = (valores_unicos[:-1] + valores_unicos[1:]) / 2
 
@@ -150,7 +155,7 @@ class DecisionTree:
 
     def construir_arbol(self, X, y, profundidad = 0):
         #parar
-        if self.gini(y) == 0 or profundidad > self.max_depth or len(y) < self.min_samples_split:
+        if self.gini(y) == 0 or profundidad >= self.max_depth or len(y) < self.min_samples_split:
             valores, conteos = np.unique(y, return_counts=True)
             indice_mayor = np.argmax(conteos)
             valor_hoja = valores[indice_mayor]
@@ -209,6 +214,60 @@ class DecisionTree:
         print(f"{espacio} |--- NO - ", end="")
         self.imprimir_arbol(nodo.right, espacio + "     ")
 
+class RandomForest:
+    def __init__(self, min_samples_split, max_depth, n_arboles):
+       self.min_samples_split = min_samples_split
+       self.max_depth = max_depth
+       self.n_arboles = n_arboles
+       self.bosque = []
+
+
+    def bootstrap(self, X, y):
+        samples_size = len(X)
+        sample_X = []
+        sample_y = []
+
+        for i in range(samples_size):
+            random = np.random.randint(0, samples_size)
+            sample_X.append(X[random])
+            sample_y.append(y[random])
+
+        return np.array(sample_X), np.array(sample_y)
+
+
+    def fit(self, X, y):
+        self.bosque = []
+
+        for i in range(self.n_arboles):
+            sample_X, sample_y = self.bootstrap(X, y)
+            arbol = DecisionTree(min_samples_split=self.min_samples_split, max_depth=self.max_depth)
+            arbol.fit(sample_X, sample_y)
+
+            self.bosque.append(arbol)
+
+    def predict(self, X):
+        predicciones_finales = []
+
+        for fila in X:
+            votos = [0, 0]
+            for arbol in self.bosque:
+                prediccion = arbol.predict_row(fila)
+                if prediccion == 0:
+                    votos[0] += 1
+                else:
+                    votos[1] += 1
+
+            if votos[0] > votos[1]:
+                ganador = 0
+            elif votos[0] < votos[1]:
+                ganador = 1
+            else:
+                #si ambos tienen la misma cantidad de votos van a ser 0
+                ganador = 0
+
+            predicciones_finales.append(ganador)
+        return np.array(predicciones_finales)
+
 def main():
     X, y = csv_prueba() 
 
@@ -222,20 +281,12 @@ def main():
 
     X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.2)
 
-    arbol = DecisionTree(min_samples_split=2, max_depth=6)
-    arbol.fit(X_train, y_train)
+    bosque = RandomForest(2, 2, 5)
+    bosque.fit(X_train, y_train)
+    predicciones = bosque.predict(X_test)
 
-    predicciones = arbol.predict(X_test)
-    print("predicciones:     ", predicciones)
-    print("etiquetas reales: ", y_test)
-
-    for i in range(0, predicciones.size - 1):
-        print(i, y_test[i] == predicciones[i])
-
-    print("\n--Arbol--")
-    arbol.imprimir_arbol()
-
-
+    print("\n Predicciones del bosque:  ", predicciones)
+    print("Valores reales:            ", y_test)
 
     evaluar = evaluacion(y_test, predicciones)
 
