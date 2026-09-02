@@ -56,6 +56,19 @@ def split_dataset(X, y, test_size = .2, random_seed=42):
 
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx] 
 
+def k_fold(X, y, k = 5):
+    cortes = int(len(X)/k)
+    idx = np.random.permutation(len(X))
+    for i in range(k):
+        inicio = i * cortes
+        fin = inicio + cortes
+
+        test_idx = idx[inicio:fin]
+        train_idx = np.concatenate([idx[:inicio], idx[fin:]]) #idx quitandole el test inicio - fin
+
+        #Uno diferente para cada iteración
+        yield (X[train_idx], X[test_idx], y[train_idx], y[test_idx])
+
 def evaluacion(y_real, y_pred):
     TP = 0
     TN = 0
@@ -281,9 +294,9 @@ class RandomForest:
             arbol.fit(sample_X, sample_y)
 
             self.bosque.append(arbol)
-            print("Arbol ", i + 1)
-            arbol.imprimir_arbol()
-            print("\n")
+            #print("Arbol ", i + 1)
+            #arbol.imprimir_arbol()
+            #print("\n")
 
 
     def predict(self, X):
@@ -313,12 +326,35 @@ def main():
 
     X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.3)
 
-    print("BOSQUE - \n")
-
     while True:
-        numero_arboles = int(input("Ingresa el numero de arboles impar: "))
-        if numero_arboles%2 != 0:
-            break
+            numero_arboles = int(input("Ingresa el numero de arboles impar: "))
+            if numero_arboles%2 != 0:
+                break
+
+    print("-- BOSQUE -- \n")
+
+    #crossvalidation
+    #dentro de los datos de train se hace el kfold
+    accuracy_k_fold = []
+    print("CROSS VALIDATION --  \n")
+    fold = 1
+    for X_ctrain, X_ctest, y_ctrain, y_ctest in k_fold(X_train, y_train, k=5):
+        bosque_cv = RandomForest(2, 5, numero_arboles)
+        bosque_cv.fit(X_ctrain, y_ctrain)
+        prediccion_cv = bosque_cv.predict(X_ctest)
+
+        correctos = np.sum(y_ctest == prediccion_cv)
+        total = len(y_ctest)
+        accuracy = correctos/total
+
+        accuracy_k_fold.append(accuracy)
+        print(f"fold {fold}: accuracy: {accuracy}")
+        fold += 1
+    promedio_cv = np.mean(accuracy_k_fold)
+    print(f"Cross validation mean accuracy: {promedio_cv: .4f} \n")
+
+
+    print("ENTRENAMIENTO--")
     
     bosque = RandomForest(2, 5, numero_arboles)
     bosque.fit(X_train, y_train)
@@ -330,7 +366,7 @@ def main():
     evaluar = evaluacion_multiclase(y_test, predicciones)
 
 
-    print("ARBOL - \n")
+    print("-- ARBOL -- \n")
 
     #Arbol
     arbol = DecisionTree(2,5)
