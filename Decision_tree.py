@@ -20,6 +20,15 @@ def csv_prueba():
     
     return X, y
 
+def csv_multiclase():
+    url = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
+    df = pd.read_csv(url, header=None)
+
+    y = df.iloc[:, 0].values
+    X = df.iloc[:, 1:].values
+
+    return X, y
+
 def csv_cancer_mama():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
     df = pd.read_csv(url, header=None)
@@ -80,7 +89,20 @@ def evaluacion(y_real, y_pred):
     print(f"Sensibilidad:   {recall:.4f}")
     print(f"Especificidad:  {specificity:.4f}\n")
 
+def evaluacion_multiclase(y_real, y_pred):
+    #print("ENTRAAAAAAAAA")
+    correctos = np.sum(y_real == y_pred)
+    total = len(y_real)
+    accuracy = correctos/total
 
+    print(f"Accuracy : {accuracy:.4f}")
+    print(f"Acertados: {correctos} de {total}")
+
+    print("\n")
+    print("--Matriz de Confusion--")
+    matriz = pd.crosstab(y_real, y_pred, rownames=['Real'], colnames=['Prediccion'])
+    print(matriz)
+    print("-----------------------\n")
 class TreeNode:
     def __init__(self, threshold=None, feature=None, left=None, right=None, valor=None):
         self.left = left
@@ -92,10 +114,11 @@ class TreeNode:
     def es_hoja(self):
         return self.valor is not None
 class DecisionTree:
-    def __init__(self, min_samples_split, max_depth):
+    def __init__(self, min_samples_split, max_depth, max_features=None):
         self.min_samples_split = min_samples_split
         self.max_depth = max_depth
         self.root = None
+        self.max_features = max_features
 
     def gini(self, y):
         """ Impureza de Gini para un arreglo"""
@@ -120,12 +143,12 @@ class DecisionTree:
         mejor_feature = None
         mejor_threshold = None
 
-        n_subconjunto = int(np.sqrt(n_features))
-        features_aleatorias = np.random.choice(n_features, n_subconjunto, replace=False)
+        if self.max_features == None:
+            features_used  = np.arange(n_features)
+        else:
+            features_used = np.random.choice(n_features, self.max_features, replace=False)
 
-
-
-        for feature in features_aleatorias:
+        for feature in features_used:
             valores_unicos = np.unique(X[:, feature])
             thresholds = (valores_unicos[:-1] + valores_unicos[1:]) / 2
 
@@ -194,12 +217,12 @@ class DecisionTree:
     def predict_row(self, row):
         assert self.root is not None, "Llamar fit antes que predict"
         nodo = self.root
-        while not nodo.es_hoja():
-            if row[nodo.feature] <= nodo.threshold:
-                nodo = nodo.left
+        while not nodo.es_hoja(): # type: ignore
+            if row[nodo.feature] <= nodo.threshold: #type: ignore
+                nodo = nodo.left #type: ignore
             else:
-                nodo = nodo.right
-        return nodo.valor
+                nodo = nodo.right #type:ignore
+        return nodo.valor #type:ignore
             
     def predict(self, X):
         predicciones  = []
@@ -218,7 +241,7 @@ class DecisionTree:
             print(f"Hoja: {nodo.valor}")
             return
 
-        print(f" feature {nodo.feature} <= threshold {nodo.threshold}")
+        print(f" feature {nodo.feature} <= threshold {nodo.threshold: .4f}")
 
         print(f"{espacio} |-- SI - ", end="")
         self.imprimir_arbol(nodo.left, espacio + " |   ")
@@ -249,10 +272,12 @@ class RandomForest:
 
     def fit(self, X, y):
         self.bosque = []
+        n_samples, n_features = X.shape
+        n_subconjunto = int(np.sqrt(n_features))
 
         for i in range(self.n_arboles):
             sample_X, sample_y = self.bootstrap(X, y)
-            arbol = DecisionTree(min_samples_split=self.min_samples_split, max_depth=self.max_depth)
+            arbol = DecisionTree(min_samples_split=self.min_samples_split, max_depth=self.max_depth, max_features=n_subconjunto)
             arbol.fit(sample_X, sample_y)
 
             self.bosque.append(arbol)
@@ -265,27 +290,18 @@ class RandomForest:
         predicciones_finales = []
 
         for fila in X:
-            votos = [0, 0]
+            votos = {}
             for arbol in self.bosque:
                 prediccion = arbol.predict_row(fila)
-                if prediccion == 0:
-                    votos[0] += 1
-                else:
-                    votos[1] += 1
+                votos[prediccion] = votos.get(prediccion, 0) + 1
 
-            if votos[0] > votos[1]:
-                ganador = 0
-            elif votos[0] < votos[1]:
-                ganador = 1
-            else:
-                #si ambos tienen la misma cantidad de votos el ganador es 0
-                ganador = 0
+            ganador = max(votos, key=lambda k : votos[k])
 
             predicciones_finales.append(ganador)
         return np.array(predicciones_finales)
 
 def main():
-    X, y = csv_cancer_mama() 
+    X, y = csv_multiclase() 
 
     print("X")
     print(type(X))
@@ -297,14 +313,38 @@ def main():
 
     X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.3)
 
-    bosque = RandomForest(2, 5, 30)
+    print("BOSQUE - \n")
+
+    while True:
+        numero_arboles = int(input("Ingresa el numero de arboles impar: "))
+        if numero_arboles%2 != 0:
+            break
+    
+    bosque = RandomForest(2, 5, numero_arboles)
     bosque.fit(X_train, y_train)
     predicciones = bosque.predict(X_test)
 
     print("\n Predicciones del bosque:  ", predicciones)
     print("Valores reales:            ", y_test)
 
-    evaluar = evaluacion(y_test, predicciones)
+    evaluar = evaluacion_multiclase(y_test, predicciones)
+
+
+    print("ARBOL - \n")
+
+    #Arbol
+    arbol = DecisionTree(2,5)
+    arbol.fit(X_train, y_train)
+    prediccion_arbol = arbol.predict(X_test)
+
+    arbol.imprimir_arbol()
+
+    print("\n Predicciones de un solo arbol:  ", prediccion_arbol)
+    print("Valores reales:            ", y_test)
+
+    evaluar_arbol = evaluacion_multiclase(y_test, prediccion_arbol)
+
+
 
 if __name__ == "__main__":
     main()
