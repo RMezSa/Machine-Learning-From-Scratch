@@ -1,12 +1,13 @@
 import numpy as np
 import pandas as pd
 
+#Itis dataset
 def csv_prueba():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/iris/iris.data"
     columnas = ['sepal_length', 'sepal_width', 'petal_length', 'petal_width', 'especie']
     df = pd.read_csv(url, names=columnas)
     df = df[df['especie'].isin(['Iris-versicolor', 'Iris-virginica'])]
-    # Mapeamos a 0 (Negativo) y 1 (Positivo)
+    # Mapeamos a 0 Negativo y 1 Positivo
     mapeo_especies = {
         'Iris-versicolor': 0,
         'Iris-virginica': 1
@@ -20,6 +21,19 @@ def csv_prueba():
     
     return X, y
 
+#Dataset pesadote de magic telescope, 19000 datos
+def csv_pesado():
+    url = "https://archive.ics.uci.edu/ml/machine-learning-databases/magic/magic04.data"
+    df = pd.read_csv(url, header=None)
+    
+    df[10] = df[10].map({'g': 1, 'h': 0})
+    
+    X = df.iloc[:, :-1].values
+    y = df.iloc[:, -1].values
+    
+    return X, y
+
+#Dataset multiclase de vinos
 def csv_multiclase():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
     df = pd.read_csv(url, header=None)
@@ -29,6 +43,7 @@ def csv_multiclase():
 
     return X, y
 
+#Dataset de cancer de mama
 def csv_cancer_mama():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/breast-cancer-wisconsin/wdbc.data"
     df = pd.read_csv(url, header=None)
@@ -40,7 +55,6 @@ def csv_cancer_mama():
 
     return X, y
 
-
 def dataset(filename):
     df = pd.read_csv(filename)
     X = df.iloc[:, :-1].values
@@ -48,6 +62,7 @@ def dataset(filename):
 
     return X, y
 
+#Split de dataset para entrenamiento y test
 def split_dataset(X, y, test_size = .2, random_seed=42):
     np.random.seed(random_seed)
     idx = np.random.permutation(len(X))
@@ -56,19 +71,21 @@ def split_dataset(X, y, test_size = .2, random_seed=42):
 
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx] 
 
+#K fold para cross validation, 5 folds default
 def k_fold(X, y, k = 5):
     cortes = int(len(X)/k)
     idx = np.random.permutation(len(X))
+
     for i in range(k):
         inicio = i * cortes
         fin = inicio + cortes
 
         test_idx = idx[inicio:fin]
-        train_idx = np.concatenate([idx[:inicio], idx[fin:]]) #idx quitandole el test inicio - fin
-
+        train_idx = np.concatenate([idx[:inicio], idx[fin:]]) #idx quitandole el test {inicio - fin}
         #Uno diferente para cada iteración
         yield (X[train_idx], X[test_idx], y[train_idx], y[test_idx])
 
+#Evaluar modelo con matriz de confusión, TP, TN, FP, FN
 def evaluacion(y_real, y_pred):
     TP = 0
     TN = 0
@@ -96,12 +113,16 @@ def evaluacion(y_real, y_pred):
     precision = TP / (TP + FP) if (TP + FP) > 0 else 0
     recall = TP / (TP + FN) if (TP + FN) > 0 else 0
     specificity = TN / (TN + FP) if (TN + FP) > 0 else 0
+    f1 = 2*(precision*recall)/(precision + recall) if precision or recall != 0 else 0
+
 
     print(f"Accuracy:       {accuracy:.4f}")
     print(f"Precision:      {precision:.4f}")
     print(f"Sensibilidad:   {recall:.4f}")
-    print(f"Especificidad:  {specificity:.4f}\n")
+    print(f"Especificidad:  {specificity:.4f}")
+    print(f"F1 score {f1:.4f} \n")
 
+# evaluación para datasets multiclase
 def evaluacion_multiclase(y_real, y_pred):
     #print("ENTRAAAAAAAAA")
     correctos = np.sum(y_real == y_pred)
@@ -116,6 +137,7 @@ def evaluacion_multiclase(y_real, y_pred):
     matriz = pd.crosstab(y_real, y_pred, rownames=['Real'], colnames=['Prediccion'])
     print(matriz)
     print("-----------------------\n")
+#Clase nodo de arbol
 class TreeNode:
     def __init__(self, threshold=None, feature=None, left=None, right=None, valor=None):
         self.left = left
@@ -126,6 +148,7 @@ class TreeNode:
 
     def es_hoja(self):
         return self.valor is not None
+#Clase arbol
 class DecisionTree:
     def __init__(self, min_samples_split, max_depth, max_features=None):
         self.min_samples_split = min_samples_split
@@ -133,6 +156,7 @@ class DecisionTree:
         self.root = None
         self.max_features = max_features
 
+    #Funcion de impureza de gini 
     def gini(self, y):
         """ Impureza de Gini para un arreglo"""
         """ 1 - sum(p_i²) """
@@ -149,7 +173,8 @@ class DecisionTree:
         gini = 1.0 - np.sum(probabilidades**2)
 
         return gini
-
+    
+    #Función para decidir el mejor split, obtener el mejor threshold, mejor feature y mejor gini
     def mejor_split(self, X, y):
         n_samples, n_features = X.shape
         mejor_gini = float('inf')
@@ -188,7 +213,6 @@ class DecisionTree:
 
 
                 #print(f"Gini ponderado: {gini_ponderado}")
-
                 if  gini_ponderado < mejor_gini:
                     mejor_gini = gini_ponderado
                     mejor_feature = feature
@@ -200,7 +224,7 @@ class DecisionTree:
 
         return mejor_threshold, mejor_feature, mejor_gini
 
-
+    #Funcion para construir arbol recursiva
     def construir_arbol(self, X, y, profundidad = 0):
         #parar
         if self.gini(y) == 0 or profundidad >= self.max_depth or len(y) < self.min_samples_split:
@@ -224,9 +248,11 @@ class DecisionTree:
 
         return TreeNode(feature=feature, threshold=threshold, left=izquierda, right=derecha)
 
+    #Funcion de entrenamiento, llama a construir arbol 
     def fit(self, X, y):
         self.root = self.construir_arbol(X, y)
 
+    #Función para predecir una sola fila, se necesita llamar a fit antes que a predict
     def predict_row(self, row):
         assert self.root is not None, "Llamar fit antes que predict"
         nodo = self.root
@@ -236,13 +262,16 @@ class DecisionTree:
             else:
                 nodo = nodo.right #type:ignore
         return nodo.valor #type:ignore
-            
+
+    # Para cada valor en X predecir el valor y
     def predict(self, X):
         predicciones  = []
         for i in X:
             predicciones.append(self.predict_row(i))
+            #Retornar el array de predicciones del arbol
         return np.array(predicciones)
 
+    #función para imprimir arbol
     def imprimir_arbol(self, nodo=None, espacio=""):
         if nodo is None:
             nodo = self.root
@@ -262,6 +291,7 @@ class DecisionTree:
         print(f"{espacio} |--- NO - ", end="")
         self.imprimir_arbol(nodo.right, espacio + "     ")
 
+#Clase de Random Forest, ocupa Decision Tree 
 class RandomForest:
     def __init__(self, min_samples_split, max_depth, n_arboles):
        self.min_samples_split = min_samples_split
@@ -269,7 +299,7 @@ class RandomForest:
        self.n_arboles = n_arboles
        self.bosque = []
 
-
+    #ocupar datos aleatorios para el entrenamiento de cada arbol, con reemplazo, puede escoger dos veces el mismo
     def bootstrap(self, X, y):
         samples_size = len(X)
         sample_X = []
@@ -282,7 +312,7 @@ class RandomForest:
 
         return np.array(sample_X), np.array(sample_y)
 
-
+    # Entrenar Random Forest, entrenar crear cada arbol, entrenarlo, y añadirlo al bosque
     def fit(self, X, y):
         self.bosque = []
         n_samples, n_features = X.shape
@@ -298,22 +328,26 @@ class RandomForest:
             #arbol.imprimir_arbol()
             #print("\n")
 
-
+    #Prediccion, se realiza la votacion, cada arbol hace su predicción de cada dato y al final se realiza una votación
+    #Arboles impares para cuando es clasificacion binaria
     def predict(self, X):
         predicciones_finales = []
 
         for fila in X:
             votos = {}
+            #Se hace la predicción de cada arbol dentro del bosque
             for arbol in self.bosque:
                 prediccion = arbol.predict_row(fila)
                 votos[prediccion] = votos.get(prediccion, 0) + 1
 
+            #La predicción con mas votos es la ganadora
             ganador = max(votos, key=lambda k : votos[k])
 
             predicciones_finales.append(ganador)
         return np.array(predicciones_finales)
 
 def main():
+    #Dataset a utilizar
     X, y = csv_multiclase() 
 
     print("X")
@@ -324,8 +358,10 @@ def main():
     print(type(y))
     print(y.shape)
 
+    #Datos de entrenamiento y de test globales
     X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.3)
 
+    #Arboles impares para el caso en que se ocupe un dataset binario
     while True:
             numero_arboles = int(input("Ingresa el numero de arboles impar: "))
             if numero_arboles%2 != 0:
@@ -338,6 +374,8 @@ def main():
     accuracy_k_fold = []
     print("CROSS VALIDATION --  \n")
     fold = 1
+
+    # Datos de entrenamiento para el cross validation, subconjunto de datos de los datos de entrenamiento globales 
     for X_ctrain, X_ctest, y_ctrain, y_ctest in k_fold(X_train, y_train, k=5):
         bosque_cv = RandomForest(2, 5, numero_arboles)
         bosque_cv.fit(X_ctrain, y_ctrain)
@@ -348,12 +386,14 @@ def main():
         accuracy = correctos/total
 
         accuracy_k_fold.append(accuracy)
+        # Accuracy de cada fold del cross validation
         print(f"fold {fold}: accuracy: {accuracy}")
         fold += 1
+    #Promedio de exactitud del cross validation
     promedio_cv = np.mean(accuracy_k_fold)
-    print(f"Cross validation mean accuracy: {promedio_cv: .4f} \n")
+    print(f"Cross validation mean accuracy: {promedio_cv: .4f} \n") 
 
-
+    #Entrenamiento real del bosque
     print("ENTRENAMIENTO--")
     
     bosque = RandomForest(2, 5, numero_arboles)
@@ -362,10 +402,10 @@ def main():
 
     print("\n Predicciones del bosque:  ", predicciones)
     print("Valores reales:            ", y_test)
-
+    #Evaluación del bosque
     evaluar = evaluacion_multiclase(y_test, predicciones)
 
-
+    #Creación, entrenamiento y evaluación de arbol individual
     print("-- ARBOL -- \n")
 
     #Arbol
@@ -379,8 +419,6 @@ def main():
     print("Valores reales:            ", y_test)
 
     evaluar_arbol = evaluacion_multiclase(y_test, prediccion_arbol)
-
-
 
 if __name__ == "__main__":
     main()
