@@ -36,6 +36,8 @@ def csv_cancer_mama():
 
     return X, y
 
+
+# Dataset de vinos, 3 clases
 def csv_multiclase():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/wine/wine.data"
     df = pd.read_csv(url, header=None)
@@ -46,6 +48,7 @@ def csv_multiclase():
     return X, y
 
 
+#Dataset de magic telescope, 19000 filas
 def csv_pesado():
     url = "https://archive.ics.uci.edu/ml/machine-learning-databases/magic/magic04.data"
     df = pd.read_csv(url, header=None)
@@ -57,7 +60,7 @@ def csv_pesado():
 
     return X, y
 
-
+#Función de split para dataset, por default 20% para test
 def split_dataset(X, y, test_size=.2, random_seed=42):
     np.random.seed(random_seed)
     idx = np.random.permutation(len(X))
@@ -66,7 +69,7 @@ def split_dataset(X, y, test_size=.2, random_seed=42):
 
     return X[train_idx], X[test_idx], y[train_idx], y[test_idx]
 
-
+#Evaluación multiclase, matriz de confusión, métricas de accuracy
 def evaluacion_multiclase(y_real, y_pred, titulo="Resultados"):
     correctos = np.sum(y_real == y_pred)
     total = len(y_real)
@@ -98,6 +101,7 @@ def main():
     print(type(y))
     print(y.shape)
 
+    #Split de datos de entrenamiento y de test
     X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=0.3, random_seed=42)
 
     while True:
@@ -108,14 +112,18 @@ def main():
     print("-- BOSQUE (scikit-learn) -- \n")
 
     print("CROSS VALIDATION --  \n")
+
+    #5 splits para el cross validation
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     accuracy_k_fold = []
     fold = 1
 
+    #Cross validation 
     for train_idx, test_idx in kf.split(X_train):
         X_ctrain, X_ctest = X_train[train_idx], X_train[test_idx]
         y_ctrain, y_ctest = y_train[train_idx], y_train[test_idx]
 
+        #creación de RandomForestClassifier para cross validation 
         bosque_cv = RandomForestClassifier(
             n_estimators=numero_arboles,
             min_samples_split=2,
@@ -125,7 +133,10 @@ def main():
             bootstrap=True,
             random_state=42
         )
+        #entrenamiento del bosque
         bosque_cv.fit(X_ctrain, y_ctrain)
+
+        #predicciones
         prediccion_cv = bosque_cv.predict(X_ctest)
 
         accuracy = accuracy_score(y_ctest, prediccion_cv)
@@ -133,11 +144,13 @@ def main():
         print(f"fold {fold}: accuracy: {accuracy}")
         fold += 1
 
+    #promedio de accuracy de cross validation
     promedio_cv = np.mean(accuracy_k_fold)
     print(f"Cross validation mean accuracy: {promedio_cv: .4f} \n")
 
     print("ENTRENAMIENTO--")
 
+    #Entrenamiento del random forest
     bosque = RandomForestClassifier(
         n_estimators=numero_arboles,
         min_samples_split=2,
@@ -147,19 +160,23 @@ def main():
         bootstrap=True,
         random_state=42
     )
+    #Entrenamiento del random forest
     bosque.fit(X_train, y_train)
+
+    #Predicciones del random forest
     predicciones = bosque.predict(X_test)
 
     print("\n Predicciones del bosque:  ", predicciones)
     print("Valores reales:            ", y_test)
 
+    #Evaliación
     accuracy_sklearn = evaluacion_multiclase(y_test, predicciones, titulo="Random Forest (sklearn)")
 
     print("\n--Classification report (sklearn)--")
     print(classification_report(y_test, predicciones))
 
+    #metrica para comparación
     accuracy_from_scratch = None
-
     if accuracy_from_scratch is not None:
         print("\n-- Comparacion --")
         print(f"Accuracy from scratch : {accuracy_from_scratch:.4f}")
