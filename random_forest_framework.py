@@ -62,6 +62,7 @@ def csv_pesado():
 
 #Función de split para dataset, por default 20% para test
 def split_dataset(X, y, test_size=.2, random_seed=42):
+    
     np.random.seed(random_seed)
     idx = np.random.permutation(len(X))
     corte = int(len(X) * (1 - test_size))
@@ -79,6 +80,7 @@ def evaluacion_multiclase(y_real, y_pred, titulo="Resultados"):
     print(f"Accuracy : {accuracy:.4f}")
     print(f"Acertados: {correctos} de {total}")
 
+    #Matriz de confusion
     print("\n--Matriz de Confusion--")
     matriz = pd.crosstab(pd.Series(y_real, name='Real'), pd.Series(y_pred, name='Prediccion'))
     print(matriz)
@@ -139,6 +141,7 @@ def main():
         #predicciones
         prediccion_cv = bosque_cv.predict(X_ctest)
 
+        # Encontrar accuracy
         accuracy = accuracy_score(y_ctest, prediccion_cv)
         accuracy_k_fold.append(accuracy)
         print(f"fold {fold}: accuracy: {accuracy}")

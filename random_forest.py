@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 #Itis dataset
 def csv_prueba():
@@ -113,7 +114,7 @@ def evaluacion(y_real, y_pred):
     precision = TP / (TP + FP) if (TP + FP) > 0 else 0
     recall = TP / (TP + FN) if (TP + FN) > 0 else 0
     specificity = TN / (TN + FP) if (TN + FP) > 0 else 0
-    f1 = 2*(precision*recall)/(precision + recall) if precision or recall != 0 else 0
+    f1 = 2 * (precision * recall) / (precision + recall) if (precision + recall) > 0 else 0
 
 
     print(f"Accuracy:       {accuracy:.4f}")
@@ -137,6 +138,10 @@ def evaluacion_multiclase(y_real, y_pred):
     matriz = pd.crosstab(y_real, y_pred, rownames=['Real'], colnames=['Prediccion'])
     print(matriz)
     print("-----------------------\n")
+
+def accuracy(y_real, y_pred):
+    return np.sum(y_real == y_pred) / len(y_real)
+
 #Clase nodo de arbol
 class TreeNode:
     def __init__(self, threshold=None, feature=None, left=None, right=None, valor=None):
@@ -348,7 +353,7 @@ class RandomForest:
 
 def main():
     #Dataset a utilizar
-    X, y = csv_multiclase() 
+    X, y = csv_cancer_mama() 
 
     print("X")
     print(type(X))
@@ -359,7 +364,9 @@ def main():
     print(y.shape)
 
     #Datos de entrenamiento y de test globales
-    X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.3)
+    #X_train, X_test, y_train, y_test = split_dataset(X, y, test_size=.3)
+    X_train, X_temp, y_train, y_temp = split_dataset(X, y, test_size=0.3, random_seed=42)
+    X_val, X_test, y_val, y_test = split_dataset(X_temp, y_temp, test_size=0.5, random_seed=42)
 
     #Arboles impares para el caso en que se ocupe un dataset binario
     while True:
@@ -383,11 +390,11 @@ def main():
 
         correctos = np.sum(y_ctest == prediccion_cv)
         total = len(y_ctest)
-        accuracy = correctos/total
+        acc_fold = correctos/total
 
-        accuracy_k_fold.append(accuracy)
+        accuracy_k_fold.append(acc_fold)
         # Accuracy de cada fold del cross validation
-        print(f"fold {fold}: accuracy: {accuracy}")
+        print(f"fold {fold}: accuracy: {acc_fold}")
         fold += 1
     #Promedio de exactitud del cross validation
     promedio_cv = np.mean(accuracy_k_fold)
@@ -400,10 +407,31 @@ def main():
     bosque.fit(X_train, y_train)
     predicciones = bosque.predict(X_test)
 
-    print("\n Predicciones del bosque:  ", predicciones)
-    print("Valores reales:            ", y_test)
+    #print("\n Predicciones del bosque:  ", predicciones)
+    #print("Valores reales:            ", y_test)
     #Evaluación del bosque
-    evaluar = evaluacion_multiclase(y_test, predicciones)
+    #evaluar = evaluacion_multiclase(y_test, predicciones)
+    acc_train = accuracy(y_train, bosque.predict(X_train))
+    acc_val = accuracy(y_val, bosque.predict(X_val))
+    gap = (acc_train - acc_val) * 100
+    print(f"Train: {acc_train:.4f}  Valor de accuracy: {acc_val:.4f}  Gap: {gap:.2f}%")
+
+
+    #barrido de max_depth para ver curva de aprendizaje
+    profundidad_arboles = list(range(1, 16))
+    train_accs, val_accs = [], []
+
+    for d in profundidad_arboles:
+        rf = RandomForest(min_samples_split=2, max_depth=d, n_arboles=15)
+        rf.fit(X_train, y_train)
+        train_accs.append(accuracy(y_train, rf.predict(X_train)))
+        val_accs.append(accuracy(y_val, rf.predict(X_val)))
+
+    plt.plot(profundidad_arboles, train_accs, marker='o', label='Train')
+    plt.plot(profundidad_arboles, val_accs, marker='o', label='Validation')
+    plt.xlabel('max_depth'); plt.ylabel('Accuracy'); plt.legend()
+    plt.savefig('curva_max_depth.png')
+
 
     #Creación, entrenamiento y evaluación de arbol individual
     print("-- ARBOL -- \n")
@@ -412,13 +440,30 @@ def main():
     arbol = DecisionTree(2,5)
     arbol.fit(X_train, y_train)
     prediccion_arbol = arbol.predict(X_test)
+    #arbol.imprimir_arbol()
+    #print("\n Predicciones de un solo arbol:  ", prediccion_arbol)
+    #print("Valores reales:            ", y_test)
+    #evaluar_arbol = evaluacion_multiclase(y_test, prediccion_arbol)
 
+    #Comparación arbol individual vs bosque 
+    arbol = DecisionTree(min_samples_split=2, max_depth=15)
+    arbol.fit(X_train, y_train)
     arbol.imprimir_arbol()
+    print("Arbol:", accuracy(y_train, arbol.predict(X_train)), accuracy(y_val, arbol.predict(X_val)))
 
-    print("\n Predicciones de un solo arbol:  ", prediccion_arbol)
-    print("Valores reales:            ", y_test)
+    bosque = RandomForest(min_samples_split=2, max_depth=15, n_arboles=15)
+    bosque.fit(X_train, y_train)
+    print("Bosque:", accuracy(y_train, bosque.predict(X_train)), accuracy(y_val, bosque.predict(X_val)))
 
-    evaluar_arbol = evaluacion_multiclase(y_test, prediccion_arbol)
+    acc_test = accuracy(y_test, bosque.predict(X_test))
+    evaluacion(y_test, bosque.predict(X_test)) 
+
+
+    print("\n-- EVALUACIÓN BASELINE --")
+    bosque_baseline = RandomForest(min_samples_split=2, max_depth=5, n_arboles=numero_arboles)
+    bosque_baseline.fit(X_train, y_train)    
+    predicciones_baseline = bosque_baseline.predict(X_test)
+    evaluacion(y_test, predicciones_baseline)
 
 if __name__ == "__main__":
     main()
